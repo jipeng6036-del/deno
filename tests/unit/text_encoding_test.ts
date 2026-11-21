@@ -109,6 +109,46 @@ Deno.test(function textDecoderErrorEncoding() {
   assert(didThrow);
 });
 
+for (
+  const { encoding, initial, malformed, next } of [
+    {
+      encoding: "utf-8",
+      initial: [0x41],
+      malformed: [0xff],
+      next: [0xef, 0xbb, 0xbf, 0x42],
+    },
+    {
+      encoding: "utf-16le",
+      initial: [0x41, 0x00],
+      malformed: [0x00, 0xd8, 0x41, 0x00],
+      next: [0xff, 0xfe, 0x42, 0x00],
+    },
+  ]
+) {
+  Deno.test(`TextDecoder resets ${encoding} stream after an error`, () => {
+    const decoder = new TextDecoder(encoding, { fatal: true });
+    const decode = (bytes: number[]) =>
+      decoder.decode(new Uint8Array(bytes), { stream: true });
+
+    assertEquals(decode(initial), "A");
+    assertThrows(() => decode(malformed), TypeError);
+    assertEquals(decode(next), "B");
+  });
+}
+
+Deno.test(function textDecoderResetsLegacyStreamAfterError() {
+  const decoder = new TextDecoder("iso-2022-jp", { fatal: true });
+  // Switch to the Roman character set, then encounter an invalid byte.
+  assertThrows(
+    () =>
+      decoder.decode(new Uint8Array([0x1b, 0x28, 0x4a, 0xff]), {
+        stream: true,
+      }),
+    TypeError,
+  );
+  assertEquals(decoder.decode(new Uint8Array([0x5c])), "\\");
+});
+
 Deno.test(function textEncoder() {
   const fixture = "𝓽𝓮𝔁𝓽";
   const encoder = new TextEncoder();

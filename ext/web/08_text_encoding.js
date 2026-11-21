@@ -254,6 +254,10 @@ class TextDecoder {
         );
       }
       return op_encoding_decode(input, this.#handle, stream);
+    } catch (error) {
+      // A decoding error discards the streaming decoder and its buffered input.
+      this.#handle = null;
+      throw error;
     } finally {
       if (!stream && this.#handle !== null) {
         this.#handle = null;
